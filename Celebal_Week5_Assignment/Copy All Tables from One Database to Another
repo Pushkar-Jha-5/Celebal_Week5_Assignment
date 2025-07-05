@@ -1,0 +1,69 @@
+-- Perform full database replication by dynamically identifying and copying all tables and their data 
+from the source database to the destination. This ensures complete schema and data consistency, aiding 
+in backup, migration, or environment synchronization.--
+
+--Folder Structure:--
+full-database-replication/
+│
+├── README.md
+├── requirements.txt
+├── config.py
+├── db_connect.py
+├── replicate_database.py
+└── logs/
+    └── replication.log
+
+--Run the replication--
+python replicate_database.py
+
+--Replicate all tables from Oracle to PostgreSQL:--
+# config.py
+SOURCE_DB_URI = 'oracle+cx_oracle://user:pass@host:port/service'
+DEST_DB_URI = 'postgresql://user:pass@localhost:5432/targetdb'
+
+--db_connect.py--
+from sqlalchemy import create_engine, inspect
+from config import SOURCE_DB_URI, DEST_DB_URI
+
+def get_source_engine():
+    return create_engine(SOURCE_DB_URI)
+
+def get_dest_engine():
+    return create_engine(DEST_DB_URI)
+
+def get_all_tables(engine):
+    inspector = inspect(engine)
+    return inspector.get_table_names()
+
+--replicate_database.py--
+import pandas as pd
+from sqlalchemy.schema import MetaData, Table
+from db_connect import get_source_engine, get_dest_engine, get_all_tables
+import logging
+import os
+
+os.makedirs('logs', exist_ok=True)
+logging.basicConfig(filename='logs/replication.log', level=logging.INFO)
+
+source_engine = get_source_engine()
+dest_engine = get_dest_engine()
+tables = get_all_tables(source_engine)
+
+print(f"🔍 Found {len(tables)} tables.")
+
+for table in tables:
+    try:
+        print(f"📤 Copying table: {table}")
+        df = pd.read_sql_table(table, source_engine)
+        
+        df.to_sql(
+            name=table,
+            con=dest_engine,
+            if_exists='replace',
+            index=False
+        )
+        logging.info(f"✅ Copied table: {table} ({len(df)} rows)")
+    except Exception as e:
+        logging.error(f"❌ Failed to copy {table}: {e}")
+        print(f"❌ Error copying {table}: {e}")
+

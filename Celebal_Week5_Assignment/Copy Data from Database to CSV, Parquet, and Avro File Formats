@@ -1,0 +1,81 @@
+--Extract data from a relational database and export it into multiple file formats: CSV for broad compatibility, Parquet for efficient analytics, and Avro for schema evolution and compact serialization. These formats support various downstream use cases such as reporting, warehousing, or distributed data processing.--
+
+--Folder Structure:--
+database-export-formats/
+│
+├── README.md
+├── requirements.txt
+├── config.py
+├── db_connect.py
+├── export_to_csv.py
+├── export_to_parquet.py
+├── export_to_avro.py
+└── sample_output/
+    ├── employees.csv
+    ├── employees.parquet
+    └── employees.avro
+
+--Run Export Scripts--
+python export_to_csv.py
+python export_to_parquet.py
+python export_to_avro.py
+
+--db_connect.py--
+from sqlalchemy import create_engine
+from config import DATABASE_URI
+
+def get_engine():
+    return create_engine(DATABASE_URI)
+
+--export_to_csv.py--
+import pandas as pd
+from db_connect import get_engine
+from config import TABLE_NAME
+
+def export_to_csv():
+    engine = get_engine()
+    df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
+    df.to_csv("sample_output/employees.csv", index=False)
+    print("✅ CSV export complete.")
+
+export_to_csv()
+
+--export_to_parquet.py--
+import pandas as pd
+from db_connect import get_engine
+from config import TABLE_NAME
+
+def export_to_parquet():
+    engine = get_engine()
+    df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
+    df.to_parquet("sample_output/employees.parquet", engine='pyarrow')
+    print("✅ Parquet export complete.")
+
+export_to_parquet()
+
+--export_to_avro.py--
+import pandas as pd
+from db_connect import get_engine
+from config import TABLE_NAME
+import fastavro
+import json
+
+def export_to_avro():
+    engine = get_engine()
+    df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
+    
+    records = df.to_dict(orient='records')
+    schema = {
+        "doc": "Employee Table",
+        "name": "Employee",
+        "namespace": "example.avro",
+        "type": "record",
+        "fields": [{"name": col, "type": "string"} for col in df.columns]
+    }
+
+    with open("sample_output/employees.avro", "wb") as out:
+        fastavro.writer(out, schema, records)
+
+    print("✅ Avro export complete.")
+
+export_to_avro()

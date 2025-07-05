@@ -1,0 +1,65 @@
+--Enable selective data transfer by choosing specific tables and columns to move between databases. 
+This approach supports compliance, reduces data volume, and aligns with business-specific requirements 
+for targeted data migration.--
+
+--Folder Structure:--
+selective-data-migration/
+│
+├── README.md
+├── requirements.txt
+├── config.py
+├── db_connect.py
+├── selective_migration.py
+└── logs/
+    └── migration.log
+
+--Install dependencies:--
+pip install -r requirements.txt
+
+--Run the migration:--
+python selective_migration.py
+
+--db_connect.py
+python
+Copy
+Edit--
+from sqlalchemy import create_engine
+from config import SOURCE_DB_URI, DEST_DB_URI
+
+def get_source_engine():
+    return create_engine(SOURCE_DB_URI)
+
+def get_dest_engine():
+    return create_engine(DEST_DB_URI)
+
+--selective_migration.py--
+import pandas as pd
+from db_connect import get_source_engine, get_dest_engine
+from config import TABLES_TO_MIGRATE
+import logging
+import os
+
+os.makedirs("logs", exist_ok=True)
+logging.basicConfig(filename="logs/migration.log", level=logging.INFO)
+
+source_engine = get_source_engine()
+dest_engine = get_dest_engine()
+
+for table, columns in TABLES_TO_MIGRATE.items():
+    try:
+        print(f"📤 Migrating table `{table}` with columns {columns}...")
+        query = f"SELECT {', '.join(columns)} FROM {table}"
+        df = pd.read_sql(query, source_engine)
+
+        df.to_sql(
+            name=table,
+            con=dest_engine,
+            if_exists='replace',
+            index=False
+        )
+        logging.info(f"✅ Migrated table `{table}` with {len(df)} rows.")
+    except Exception as e:
+        logging.error(f"❌ Failed to migrate table `{table}`: {e}")
+        print(f"❌ Error migrating `{table}`: {e}")
+
+

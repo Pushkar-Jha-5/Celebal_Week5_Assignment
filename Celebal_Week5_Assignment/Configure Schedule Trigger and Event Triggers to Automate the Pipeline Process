@@ -1,0 +1,98 @@
+--Automate pipeline execution using schedule-based triggers for regular intervals and event-based 
+triggers to respond to dynamic actions like file arrivals or database changes. This ensures timely 
+and hands-free data movement in both real-time and batch scenarios.--
+
+--Folder Structure:--
+automated-data-pipeline/
+│
+├── README.md
+├── requirements.txt
+├── config.py
+├── pipeline.py
+├── scheduler_trigger.py
+├── file_event_trigger.py
+├── db_event_trigger.py        
+└── sample_output/
+    └── exported_data.csv
+
+--Run Schedule Trigger--
+python scheduler_trigger.py
+
+--Run File Watcher Trigger--
+python file_event_trigger.py
+
+--pipeline.py--
+import pandas as pd
+from config import EXPORT_PATH
+
+def run_pipeline():
+    print("🔄 Running pipeline...")
+    # Simulate some data
+    data = {
+        'id': [1, 2, 3],
+        'name': ['Alice', 'Bob', 'Charlie']
+    }
+    df = pd.DataFrame(data)
+    df.to_csv(EXPORT_PATH, index=False)
+    print("✅ Pipeline finished. Data exported.")
+
+--scheduler_trigger.py--
+import schedule
+import time
+from pipeline import run_pipeline
+from config import SCHEDULE_TIME
+
+schedule.every().day.at(SCHEDULE_TIME).do(run_pipeline)
+
+print(f"📅 Schedule set for {SCHEDULE_TIME}. Waiting...")
+
+while True:
+    schedule.run_pending()
+    time.sleep(1)
+
+--file_event_trigger.py--
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+from pipeline import run_pipeline
+from config import WATCH_FOLDER
+
+class WatcherHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if event.is_directory: return
+        print(f"📁 New file detected: {event.src_path}")
+        run_pipeline()
+
+observer = Observer()
+observer.schedule(WatcherHandler(), path=WATCH_FOLDER, recursive=False)
+observer.start()
+
+print(f"👀 Watching folder: {WATCH_FOLDER}")
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    observer.stop()
+observer.join()
+
+--(Optional) db_event_trigger.py--
+# Simulate DB trigger using polling (replace with real trigger-based logic)
+import time
+from pipeline import run_pipeline
+
+last_run_time = 0
+
+def check_db_change():
+    # Replace this with real DB timestamp check
+    global last_run_time
+    new_change_time = time.time()  # mock
+    if new_change_time - last_run_time > 60:  # every 1 min
+        last_run_time = new_change_time
+        print("🧠 DB change detected (simulated).")
+        run_pipeline()
+
+print("⏳ Simulated DB polling started.")
+while True:
+    check_db_change()
+    time.sleep(10)
+
